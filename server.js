@@ -6,8 +6,17 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.text({ limit: '50mb' }));
 
+const APP_SECRET = process.env.APP_SECRET;
+
 app.post('/api/chat', async (req, res) => {
   try {
+    // Verify app secret
+    const reqSecret = req.headers['x-app-secret'];
+    if (APP_SECRET && reqSecret !== APP_SECRET) {
+      console.warn('Unauthorized request blocked');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       console.error('No API key found');
@@ -15,7 +24,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     console.log('Received request, forwarding to Anthropic...');
-    
+
     const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -30,7 +39,6 @@ app.post('/api/chat', async (req, res) => {
 
     const text = await response.text();
     console.log('Anthropic response status:', response.status);
-    console.log('Anthropic response preview:', text.substring(0, 200));
 
     res.setHeader('Content-Type', 'application/json');
     res.status(response.status).send(text);
